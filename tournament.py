@@ -15,7 +15,8 @@ def deleteMatches():
     """Remove all the match records from the database."""
     db = connect()
     c = db.cursor()
-    c.execute("delete from scores;")
+    c.execute("update scores set points = 0 where points != 0;")
+    c.execute("update rounds set matches = 0 where matches != 0")
     db.commit()
     db.close()
 
@@ -24,6 +25,8 @@ def deletePlayers():
     """Remove all the player records from the database."""
     db = connect()
     c = db.cursor()
+    c.execute("delete from scores;")
+    c.execute("delete from rounds;")
     c.execute("delete from players;")
     db.commit()
     db.close()
@@ -51,7 +54,8 @@ def registerPlayer(name):
     db = connect()
     c = db.cursor()
     c.execute("insert into players (name) values(%s);",(name,))
-    c.execute("insert into scores (points) values(0);")
+    c.execute("insert into scores (id, points) values((select id from players where name = (%s)), 0);", (name,))
+    c.execute("insert into rounds (id, matches) values((select id from players where name = (%s)), 0);", (name,))
     db.commit()
     db.close()
 
@@ -69,9 +73,9 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-    b = connect()
+    db = connect()
     c = db.cursor()
-    c.execute("select name, points from players, scores where players.id = scores.id order by points;")
+    c.execute("select players.id, name, points, matches from players, scores, rounds where players.id = scores.id and players.id = rounds.id order by points;")
     res = c.fetchall()
     db.close()
     return res
@@ -83,11 +87,10 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
-    b = connect()
+    db = connect()
     c = db.cursor()
-    c.execute("select points from scores where id = (%d)", (winner,))
-    p = c.fetchall()[0][0] + 1
-    c.execute("insert into scores (points) values (%d)", (p,))
+    c.execute("update scores set points = points + 1 where id = (%s)", (winner,))
+    c.execute("update rounds set matches = matches + 1 where id = (%s) or id =(%s)", (winner, loser))
     db.commit()
     db.close()
 
@@ -106,14 +109,14 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
-    b = connect()
+    db = connect()
     c = db.cursor()
-    c.execute("select players.id, name from players, scores on players.id = scores.id order by points")
+    c.execute("select players.id, name from players, scores where players.id = scores.id order by points")
     rows = c.fetchall()
     db.close()
     res = []
     for i in xrange(len(rows)/2):
-        res.append((rows[i][0], rows[i][1], rows[i+1][0], rows[i+1][1]))
+        res.append((rows[2*i][0], rows[2*i][1], rows[2*i+1][0], rows[2*i+1][1]))
     return res
 
 
