@@ -2,7 +2,7 @@
 # 
 # tournament.py -- implementation of a Swiss-system tournament
 #
-#########
+
 import psycopg2
 
 
@@ -13,15 +13,31 @@ def connect():
 
 def deleteMatches():
     """Remove all the match records from the database."""
+    db = connect()
+    c = db.cursor()
+    c.execute("delete from scores;")
+    db.commit()
+    db.close()
 
 
 def deletePlayers():
     """Remove all the player records from the database."""
+    db = connect()
+    c = db.cursor()
+    c.execute("delete from players;")
+    db.commit()
+    db.close()
 
 
 def countPlayers():
     """Returns the number of players currently registered."""
-
+    db = connect()
+    c = db.cursor()
+    c.execute("select count(*) from players;")
+    res = c.fetchall()
+    db.close()
+    # res is a list of tuples, so we have to return first element in first tuple
+    return res[0][0]
 
 def registerPlayer(name):
     """Adds a player to the tournament database.
@@ -32,6 +48,12 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
+    db = connect()
+    c = db.cursor()
+    c.execute("insert into players (name) values(%s);",(name,))
+    c.execute("insert into scores (points) values(0);")
+    db.commit()
+    db.close()
 
 
 def playerStandings():
@@ -47,7 +69,12 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-
+    b = connect()
+    c = db.cursor()
+    c.execute("select name, points from players, scores where players.id = scores.id order by points;")
+    res = c.fetchall()
+    db.close()
+    return res
 
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
@@ -56,8 +83,14 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
- 
- 
+    b = connect()
+    c = db.cursor()
+    c.execute("select points from scores where id = (%d)", (winner,))
+    p = c.fetchall()[0][0] + 1
+    c.execute("insert into scores (points) values (%d)", (p,))
+    db.commit()
+    db.close()
+
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
   
@@ -73,5 +106,15 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
+    b = connect()
+    c = db.cursor()
+    c.execute("select players.id, name from players, scores on players.id = scores.id order by points")
+    rows = c.fetchall()
+    db.close()
+    res = []
+    for i in xrange(len(rows)/2):
+        res.append((rows[i][0], rows[i][1], rows[i+1][0], rows[i+1][1]))
+    return res
+
 
 
