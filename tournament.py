@@ -15,6 +15,7 @@ def deleteMatches():
     """Remove all the match records from the database."""
     db = connect()
     c = db.cursor()
+    # we cannot delete the contents in cols, we have to set contents in cols as zeros
     c.execute("update scores set points = 0 where points != 0;")
     c.execute("update rounds set matches = 0 where matches != 0")
     db.commit()
@@ -25,6 +26,7 @@ def deletePlayers():
     """Remove all the player records from the database."""
     db = connect()
     c = db.cursor()
+    # remove  all contents after delete players
     c.execute("delete from scores;")
     c.execute("delete from rounds;")
     c.execute("delete from players;")
@@ -53,6 +55,7 @@ def registerPlayer(name):
     """
     db = connect()
     c = db.cursor()
+    # have to initilize the player, scores and rounds three tables when add a new player
     c.execute("insert into players (name) values(%s);",(name,))
     c.execute("insert into scores (id, points) values((select id from players where name = (%s)), 0);", (name,))
     c.execute("insert into rounds (id, matches) values((select id from players where name = (%s)), 0);", (name,))
@@ -75,6 +78,7 @@ def playerStandings():
     """
     db = connect()
     c = db.cursor()
+    # beacuse we only set col as zeros, so we still can get correct join after we delete matches info
     c.execute("select players.id, name, points, matches from players, scores, rounds where players.id = scores.id and players.id = rounds.id order by points;")
     res = c.fetchall()
     db.close()
@@ -89,6 +93,7 @@ def reportMatch(winner, loser):
     """
     db = connect()
     c = db.cursor()
+    # updated three tables after report score
     c.execute("update scores set points = points + 1 where id = (%s)", (winner,))
     c.execute("update rounds set matches = matches + 1 where id = (%s) or id =(%s)", (winner, loser))
     db.commit()
@@ -111,10 +116,12 @@ def swissPairings():
     """
     db = connect()
     c = db.cursor()
+    # we sorted the players by their points
     c.execute("select players.id, name from players, scores where players.id = scores.id order by points")
     rows = c.fetchall()
     db.close()
     res = []
+    # we put adjacent players into a tuple as a pair for the next match
     for i in xrange(len(rows)/2):
         res.append((rows[2*i][0], rows[2*i][1], rows[2*i+1][0], rows[2*i+1][1]))
     return res
