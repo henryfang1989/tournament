@@ -30,6 +30,7 @@ def deletePlayers():
     c.execute("delete from scores;")
     c.execute("delete from rounds;")
     c.execute("delete from players;")
+    c.execute("ALTER SEQUENCE players_id_seq RESTART WITH 1")
     db.commit()
     db.close()
 
@@ -57,8 +58,10 @@ def registerPlayer(name):
     c = db.cursor()
     # have to initilize the player, scores and rounds three tables when add a new player
     c.execute("insert into players (name) values(%s);",(name,))
-    c.execute("insert into scores (id, points) values((select id from players where name = (%s)), 0);", (name,))
-    c.execute("insert into rounds (id, matches) values((select id from players where name = (%s)), 0);", (name,))
+    c.execute("insert into scores (id, points)" \
+        " values((select id from players where name = (%s)), 0);", (name,))
+    c.execute("insert into rounds (id, matches)" \
+        " values((select id from players where name = (%s)), 0);", (name,))
     db.commit()
     db.close()
 
@@ -79,7 +82,8 @@ def playerStandings():
     db = connect()
     c = db.cursor()
     # beacuse we only set col as zeros, so we still can get correct join after we delete matches info
-    c.execute("select players.id, name, points, matches from players, scores, rounds where players.id = scores.id and players.id = rounds.id order by points;")
+    c.execute("select players.id, name, points, matches from players, scores, rounds" \
+        " where players.id = scores.id and players.id = rounds.id order by points desc;")
     res = c.fetchall()
     db.close()
     return res
@@ -95,7 +99,8 @@ def reportMatch(winner, loser):
     c = db.cursor()
     # updated three tables after report score
     c.execute("update scores set points = points + 1 where id = (%s)", (winner,))
-    c.execute("update rounds set matches = matches + 1 where id = (%s) or id =(%s)", (winner, loser))
+    c.execute("update rounds set matches = matches + 1" \
+        " where id = (%s) or id =(%s)", (winner, loser))
     db.commit()
     db.close()
 
@@ -116,8 +121,9 @@ def swissPairings():
     """
     db = connect()
     c = db.cursor()
-    # we sorted the players by their points
-    c.execute("select players.id, name from players, scores where players.id = scores.id order by points")
+    # we sorted the players by their points 
+    c.execute("select players.id, name from players, scores" \
+        " where players.id = scores.id order by points desc")
     rows = c.fetchall()
     db.close()
     res = []
@@ -126,5 +132,12 @@ def swissPairings():
         res.append((rows[2*i][0], rows[2*i][1], rows[2*i+1][0], rows[2*i+1][1]))
     return res
 
-
+def findChampion():
+    db = connect()
+    c = db.cursor()
+    c.execute("select players.id, name from players, scores" \
+        " where players.id = scores.id order by points desc limit 3")
+    rows = c.fetchall()
+    db.close()
+    return rows
 
